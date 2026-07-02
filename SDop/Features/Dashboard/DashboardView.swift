@@ -26,7 +26,7 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    if ShieldManager.shared.isDemoMode {
+                    if true { // 데모 모드 배너 (entitlement 승인 후 제거)
                         demoModeBanner
                     }
                     activeToggleCard
