@@ -15,7 +15,11 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            LinearGradient(
+                colors: [Color(red: 0.08, green: 0.08, blue: 0.12), Color.black],
+                startPoint: .top,
+                endPoint: .bottom
+            ).ignoresSafeArea()
 
             VStack {
                 // Progress
@@ -31,7 +35,7 @@ struct OnboardingView: View {
                     setLimitsStep.tag(Step.setLimits)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.spring(response: 0.4), value: currentStep)
+                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: currentStep)
             }
         }
     }
@@ -42,25 +46,33 @@ struct OnboardingView: View {
             Spacer()
 
             Image(systemName: "brain.head.profile.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(Color("AccentOrange"))
+                .font(.system(size: 100))
+                .foregroundStyle(
+                    LinearGradient(colors: [Color("AccentOrange"), .yellow], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
                 .symbolEffect(.pulse)
+                .shadow(color: Color("AccentOrange").opacity(0.4), radius: 20)
 
             VStack(spacing: 12) {
                 Text("SDop!")
-                    .font(.system(size: 48, weight: .black, design: .rounded))
-                    .foregroundStyle(Color("AccentOrange"))
+                    .font(.system(size: 56, weight: .black, design: .rounded))
+                    .foregroundStyle(
+                        LinearGradient(colors: [.white, Color(white: 0.8)], startPoint: .top, endPoint: .bottom)
+                    )
 
-                Text("Stop Dopamine")
-                    .font(.title3)
-                    .foregroundStyle(.white.opacity(0.7))
+                Text("STOP DOPAMINE")
+                    .font(.headline).fontWeight(.bold)
+                    .foregroundStyle(.white.opacity(0.5))
+                    .tracking(3)
             }
 
             Text("도파민을 원하면,\n그에 따른 책임을 져라.")
                 .font(.title2)
-                .fontWeight(.medium)
+                .fontWeight(.bold)
                 .foregroundStyle(.white)
                 .multilineTextAlignment(.center)
+                .padding(.top, 16)
+                .lineSpacing(8)
 
             Spacer()
 

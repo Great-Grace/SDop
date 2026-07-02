@@ -36,13 +36,22 @@ struct DashboardView: View {
                     }
                     shieldedAppsList
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 32)
             }
-            .background(Color.black.ignoresSafeArea())
+            .background(
+                LinearGradient(
+                    colors: [Color(red: 0.08, green: 0.08, blue: 0.12), Color.black],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ).ignoresSafeArea()
+            )
             .navigationTitle("대시보드")
             .navigationBarTitleDisplayMode(.large)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(Color.black.opacity(0.8), for: .navigationBar)
         }
     }
 
@@ -61,19 +70,19 @@ struct DashboardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    // MARK: - Active Toggle
     private var activeToggleCard: some View {
         HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(isActive ? "SDop 활성" : "SDop 비활성")
+            VStack(alignment: .leading, spacing: 6) {
+                Text(isActive ? "SDop 활성화" : "SDop 비활성화")
                     .font(.title3).fontWeight(.bold).foregroundStyle(.white)
-                Text(isActive ? "앱 간섭이 적용 중입니다" : "앱 간섭이 해제되어 있습니다")
-                    .font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                Text(isActive ? "도파민 디톡스가 진행 중입니다" : "앱 접근 제한이 해제되었습니다")
+                    .font(.subheadline).foregroundStyle(.white.opacity(0.7))
             }
             Spacer()
             Toggle("", isOn: $isActive)
                 .tint(Color("AccentOrange"))
                 .labelsHidden()
+                .scaleEffect(1.1)
                 .onChange(of: isActive) { _, newValue in
                     if newValue {
                         let apps = profile?.selectedAppNames.enumerated().map { i, name in
@@ -85,9 +94,18 @@ struct DashboardView: View {
                     }
                 }
         }
-        .padding(20)
-        .background(Color.white.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .padding(24)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.white.opacity(0.08))
+                if isActive {
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(LinearGradient(colors: [Color("AccentOrange").opacity(0.6), .clear], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1)
+                }
+            }
+        )
+        .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
     }
 
     // MARK: - Stats
@@ -118,7 +136,7 @@ struct DashboardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .fullScreenCover(isPresented: $showChallenge) {
-            ReadingChallengeView(content: ContentService.shared.recommendedContent() ?? ContentService.shared.sampleContents().first!)
+            ReadingChallengeView(content: ContentService.shared.recommendedContent() ?? ContentService.shared.sampleContents().first ?? ReadingContent(id: UUID(), title: "샘플", author: "SDop", category: .koreanClassic, pages: [Page(pageNumber: 1, content: "샘플 콘텐츠입니다.")], quiz: [QuizQuestion(id: UUID(), question: "퀴즈", options: ["A", "B", "C", "D"], correctIndex: 0, explanation: "해설")], difficulty: .easy, coverImageName: nil))
         }
     }
 
@@ -211,18 +229,31 @@ struct StatCard: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.title2).foregroundStyle(Color("AccentOrange"))
-            Text(value)
-                .font(.title3).fontWeight(.bold).foregroundStyle(.white)
-            Text(label)
-                .font(.caption2).foregroundStyle(.white.opacity(0.6))
-                .multilineTextAlignment(.center)
+                .padding(12)
+                .background(Color("AccentOrange").opacity(0.15))
+                .clipShape(Circle())
+            
+            VStack(spacing: 4) {
+                Text(value)
+                    .font(.title3).fontWeight(.heavy).foregroundStyle(.white)
+                Text(label)
+                    .font(.caption).fontWeight(.medium).foregroundStyle(.white.opacity(0.6))
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color.white.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .padding(.vertical, 20)
+        .padding(.horizontal, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color.white.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        )
     }
 }

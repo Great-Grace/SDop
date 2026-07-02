@@ -112,7 +112,8 @@ struct ChallengeOverlay: View {
         .fullScreenCover(isPresented: $showReading) {
             ReadingChallengeView(
                 content: ContentService.shared.recommendedContent()
-                    ?? ContentService.shared.sampleContents().first!
+                    ?? ContentService.shared.sampleContents().first
+                    ?? ReadingContent(id: UUID(), title: "샘플", author: "SDop", category: .koreanClassic, pages: [Page(pageNumber: 1, content: "샘플 콘텐츠입니다.")], quiz: [QuizQuestion(id: UUID(), question: "퀴즈", options: ["A", "B", "C", "D"], correctIndex: 0, explanation: "해설")], difficulty: .easy, coverImageName: nil)
             )
         }
     }

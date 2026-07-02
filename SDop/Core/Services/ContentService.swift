@@ -64,7 +64,9 @@ final class ContentService {
     /// 번들 내 Resources/Books/ 디렉토리의 모든 JSON 파일을 로드한다
     private func loadContentsFromBundle() -> [ReadingContent] {
         guard let bundleURL = Bundle.main.resourceURL else {
+#if DEBUG
             print("[ContentService] 번들 리소스 경로를 찾을 수 없습니다")
+#endif
             return []
         }
         
@@ -86,7 +88,9 @@ final class ContentService {
         
         // JSON 파일이 없으면 샘플 콘텐츠 제공
         if contents.isEmpty {
+#if DEBUG
             print("[ContentService] JSON 파일을 찾을 수 없어 샘플 콘텐츠를 제공합니다")
+#endif
             contents = sampleContents()
         }
         
@@ -100,7 +104,9 @@ final class ContentService {
             let decoder = JSONDecoder()
             return try decoder.decode(ReadingContent.self, from: data)
         } catch {
+#if DEBUG
             print("[ContentService] JSON 디코딩 실패: \(url.lastPathComponent) - \(error.localizedDescription)")
+#endif
             return nil
         }
     }
@@ -119,7 +125,9 @@ final class ContentService {
             let jsonFiles = files.filter { $0.pathExtension == "json" }
             return jsonFiles.isEmpty ? nil : jsonFiles
         } catch {
+#if DEBUG
             print("[ContentService] 디렉토리 읽기 실패: \(error.localizedDescription)")
+#endif
             return nil
         }
     }

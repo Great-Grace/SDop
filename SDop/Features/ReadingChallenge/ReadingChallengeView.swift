@@ -105,10 +105,21 @@ struct ReadingChallengeView: View {
     // MARK: - Page Content
     private var pageContent: some View {
         Text(content.pages[currentPage].content)
-            .font(.body)
-            .foregroundStyle(.white.opacity(0.9))
-            .lineSpacing(8)
+            .font(.system(.body, design: .serif))
+            .foregroundStyle(Color(white: 0.85))
+            .lineSpacing(10)
             .tracking(0.3)
+            .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(white: 0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
     }
     
     // MARK: - Page Indicator
@@ -186,8 +197,11 @@ struct ReadingChallengeView: View {
     
     private func startTimer() {
         readingStartTime = Date()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            elapsedTime = Date().timeIntervalSince(readingStartTime)
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.elapsedTime = Date().timeIntervalSince(self.readingStartTime)
+            }
         }
     }
     
@@ -203,6 +217,11 @@ struct ReadingChallengeView: View {
         
         if let profile = try? modelContext.fetch(FetchDescriptor<UserProfile>()).first {
             profile.recordReading(pages: totalPages)
+        } else {
+            // Profile fetch failed — log in debug, session is still saved
+            #if DEBUG
+            print("[ReadingChallengeView] UserProfile fetch failed")
+            #endif
         }
     }
 }

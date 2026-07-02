@@ -102,26 +102,31 @@ struct QuizView: View {
             if isCorrect { correctAnswers += 1 }
             withAnimation(.spring(response: 0.3)) { showExplanation = true }
         } label: {
-            HStack {
+            HStack(spacing: 16) {
                 Text(question.options[index])
                     .font(.body)
+                    .fontWeight(isSelected ? .semibold : .regular)
                     .foregroundStyle(optionTextColor(isSelected: isSelected, isCorrect: isCorrect, showResult: showResult))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 
                 if showResult {
                     Image(systemName: isCorrect ? "checkmark.circle.fill" : (isSelected ? "xmark.circle.fill" : "circle"))
                         .foregroundStyle(isCorrect ? .green : (isSelected ? .red : .white.opacity(0.2)))
+                        .font(.title3)
                 }
             }
-            .padding(16)
+            .padding(20)
             .background(optionBgColor(isSelected: isSelected, isCorrect: isCorrect, showResult: showResult))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(optionBorderColor(isSelected: isSelected, isCorrect: isCorrect, showResult: showResult), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(optionBorderColor(isSelected: isSelected, isCorrect: isCorrect, showResult: showResult), lineWidth: isSelected ? 2 : 1)
             )
+            .shadow(color: isSelected ? Color("AccentOrange").opacity(0.2) : .clear, radius: 5, x: 0, y: 3)
+            .scaleEffect(isSelected ? 1.02 : 1.0)
         }
         .disabled(showExplanation)
+        .animation(.spring(response: 0.3), value: isSelected)
     }
     
     private func optionTextColor(isSelected: Bool, isCorrect: Bool, showResult: Bool) -> Color {

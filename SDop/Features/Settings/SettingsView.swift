@@ -82,12 +82,16 @@ struct SettingsView: View {
                         settingsRow(icon: "info.circle.fill", title: "SDop 소개", subtitle: "v1.0.0")
                     }
                     
-                    Link(destination: URL(string: "https://sdop.app/privacy")!) {
+                    if let privacyURL = URL(string: "https://sdop.app/privacy") {
+                    Link(destination: privacyURL) {
                         settingsRow(icon: "hand.raised.fill", title: "개인정보 처리방침", subtitle: nil)
                     }
+                    }
                     
-                    Link(destination: URL(string: "https://sdop.app/terms")!) {
+                    if let termsURL = URL(string: "https://sdop.app/terms") {
+                    Link(destination: termsURL) {
                         settingsRow(icon: "doc.text.fill", title: "이용약관", subtitle: nil)
+                    }
                     }
                 }
                 .listRowBackground(Color.white.opacity(0.05))

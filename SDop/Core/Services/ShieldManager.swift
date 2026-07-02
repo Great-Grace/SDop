@@ -43,7 +43,9 @@ final class ShieldManager: ObservableObject {
         targetApps = apps
         isShieldActive = true
         startUsageTracking()
+#if DEBUG
         print("[ShieldManager] 차단 시작 - \(apps.count)개 앱")
+#endif
     }
 
     /// 모든 차단 해제
@@ -54,7 +56,9 @@ final class ShieldManager: ObservableObject {
         targetApps.removeAll()
         stopUsageTracking()
         stopUnlockTimer()
+#if DEBUG
         print("[ShieldManager] 차단 해제")
+#endif
     }
 
     /// 챌린지 통과 후 임시 해제
@@ -72,7 +76,9 @@ final class ShieldManager: ObservableObject {
                 }
             }
         }
+#if DEBUG
         print("[ShieldManager] 임시 해제 - \(Int(duration / 60))분")
+#endif
     }
 
     // MARK: - 사용 시간 추적
@@ -112,7 +118,9 @@ final class ShieldManager: ObservableObject {
         guard isShieldActive else { return }
         shouldShowChallenge = true
         currentUsageTime = 0
+#if DEBUG
         print("[ShieldManager] 챌린지 트리거!")
+#endif
     }
 
     /// 잠금 해제 만료
@@ -120,7 +128,9 @@ final class ShieldManager: ObservableObject {
         stopUnlockTimer()
         remainingUnlockTime = 0
         triggerChallenge()
+#if DEBUG
         print("[ShieldManager] 잠금 해제 만료 — 챌린지 재등장")
+#endif
     }
 
     // MARK: - 앱 실행 시뮬레이션
@@ -132,15 +142,21 @@ final class ShieldManager: ObservableObject {
 
         if remainingUnlockTime <= 0 {
             shouldShowChallenge = true
+#if DEBUG
             print("[ShieldManager] \(appName) 실행 → 챌린지 표시")
+#endif
         } else {
+#if DEBUG
             print("[ShieldManager] \(appName) 실행 → 잠금 해제 중 (\(Int(remainingUnlockTime))초 남음)")
+#endif
         }
     }
 
     /// 모든 설정 초기화
     func clearAllSettings() {
         removeShield()
+#if DEBUG
         print("[ShieldManager] 모든 설정 초기화")
+#endif
     }
 }
