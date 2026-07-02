@@ -23,7 +23,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         // Re-apply shields when threshold is exceeded
         let selection = FamilyActivitySelection()
         store.shield.applications = selection.applicationTokens
-        store.shield.applicationCategories = selection.categoryTokens
+        store.shield.applicationCategories = .specific(selection.categoryTokens)
     }
 
     override func intervalWillStartWarning(for activity: DeviceActivityName) {
