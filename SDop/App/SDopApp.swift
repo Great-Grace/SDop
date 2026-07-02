@@ -1,19 +1,16 @@
 import SwiftUI
 import SwiftData
-import FamilyControls
 
 @main
 struct SDopApp: App {
     @StateObject private var appState = AppState()
-    
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(appState)
                 .onAppear {
-                    Task {
-                        await appState.checkAuthorization()
-                    }
+                    appState.checkAuthorization()
                 }
         }
         .modelContainer(for: [
@@ -28,22 +25,85 @@ struct SDopApp: App {
 struct RootView: View {
     @EnvironmentObject var appState: AppState
     @Query private var profiles: [UserProfile]
-    
+
     var body: some View {
-        Group {
-            if appState.isOnboarding {
-                OnboardingView()
-            } else {
-                MainTabView()
+        ZStack {
+            Group {
+                if appState.isOnboarding {
+                    OnboardingView()
+                } else {
+                    MainTabView()
+                }
+            }
+            .preferredColorScheme(.dark)
+            .tint(Color("AccentOrange"))
+            .animation(.easeInOut, value: appState.isOnboarding)
+            .onAppear {
+                if profiles.isEmpty {
+                    appState.isOnboarding = true
+                }
+            }
+
+            // 챌린지 오버레이 — 앱 사용 중 시간 초과 시 표시
+            if ShieldManager.shared.shouldShowChallenge {
+                ChallengeOverlay()
+                    .transition(.opacity)
+                    .zIndex(999)
             }
         }
-        .preferredColorScheme(.dark)
-        .tint(Color("AccentOrange"))
-        .animation(.easeInOut, value: appState.isOnboarding)
-        .onAppear {
-            if profiles.isEmpty {
-                appState.isOnboarding = true
+    }
+}
+
+// MARK: - 챌린지 오버레이 (앱 간섭용)
+struct ChallengeOverlay: View {
+    @State private var showReading = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.95).ignoresSafeArea()
+
+            VStack(spacing: 32) {
+                Spacer()
+
+                Image(systemName: "book.closed.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(Color("AccentOrange"))
+
+                VStack(spacing: 12) {
+                    Text("도파민을 원하면 책임을 져라!")
+                        .font(.title2).fontWeight(.bold)
+                        .foregroundStyle(.white)
+
+                    Text("앱을 사용하려면 먼저 독서 챌린지를\n완료해야 합니다")
+                        .font(.body)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+
+                Button {
+                    showReading = true
+                } label: {
+                    HStack {
+                        Image(systemName: "book.fill")
+                        Text("책 읽고 해제하기")
+                    }
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                    .background(Color("AccentOrange"))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
             }
+        }
+        .fullScreenCover(isPresented: $showReading) {
+            ReadingChallengeView(
+                content: ContentService.shared.recommendedContent()
+                    ?? ContentService.shared.sampleContents().first!
+            )
         }
     }
 }
@@ -51,11 +111,11 @@ struct RootView: View {
 // MARK: - Main Tab View
 struct MainTabView: View {
     @State private var selectedTab: Tab = .dashboard
-    
+
     enum Tab: String {
         case dashboard, library, settings
     }
-    
+
     var body: some View {
         TabView(selection: $selectedTab) {
             DashboardView()
@@ -63,13 +123,13 @@ struct MainTabView: View {
                     Label("대시보드", systemImage: "chart.bar.fill")
                 }
                 .tag(Tab.dashboard)
-            
+
             ContentLibraryView()
                 .tabItem {
                     Label("도서관", systemImage: "books.vertical.fill")
                 }
                 .tag(Tab.library)
-            
+
             SettingsView()
                 .tabItem {
                     Label("설정", systemImage: "gearshape.fill")
@@ -85,17 +145,25 @@ struct MainTabView: View {
 class AppState: ObservableObject {
     @Published var isOnboarding: Bool = false
     @Published var isAuthorized: Bool = false
-    
-    func checkAuthorization() async {
+
+    func checkAuthorization() {
         ShieldManager.shared.checkAuthorizationStatus()
+        #if canImport(FamilyControls)
         isAuthorized = ShieldManager.shared.authorizationStatus == .approved
+        #else
+        isAuthorized = true // 데모 모드: 항상 authorized
+        #endif
     }
-    
+
     func requestAuthorization() async throws {
+        #if canImport(FamilyControls)
         try await ShieldManager.shared.requestAuthorization()
         isAuthorized = true
+        #else
+        isAuthorized = true
+        #endif
     }
-    
+
     func completeOnboarding() {
         withAnimation(.spring(response: 0.6)) {
             isOnboarding = false

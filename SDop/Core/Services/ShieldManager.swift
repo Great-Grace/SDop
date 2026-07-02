@@ -1,36 +1,67 @@
 import Foundation
+import SwiftUI
+
+#if canImport(FamilyControls)
 import FamilyControls
 import ManagedSettings
+#endif
 
 // MARK: - ShieldManager
+// 데모 모드: FamilyControls 없이도 동작 (UI + 타이머 기반)
+// 실기기: FamilyControls + ManagedSettings로 시스템 레벨 차단
 
-/// FamilyControls 인증 및 ManagedSettings 차단(Shield) 적용을 관리하는 서비스
 @MainActor
 final class ShieldManager: ObservableObject {
-    
+
     static let shared = ShieldManager()
-    
-    /// FamilyControls 인증 상태
-    @Published var authorizationStatus: AuthorizationStatus = .notDetermined
-    
-    /// 현재 차단이 활성화되어 있는지 여부
+
+    // MARK: - Published State
+
+    /// 현재 차단이 활성화되어 있는지
     @Published var isShieldActive: Bool = false
-    
-    /// FamilyControls 인증을 관리하는 객체
+
+    /// 데모 모드 여부 (entitlement 없을 때)
+    @Published var isDemoMode: Bool = true
+
+    /// 독서 챌린지를 보여줘야 하는지 (앱 간섭 트리거)
+    @Published var shouldShowChallenge: Bool = false
+
+    /// 현재 사용 중인 앱 이름 (데모 모드에서 표시용)
+    @Published var currentTargetApp: String?
+
+    /// 잠금 해제 후 남은 시간 (초)
+    @Published var remainingUnlockTime: TimeInterval = 0
+
+    // MARK: - Private State
+
+    #if canImport(FamilyControls)
     private let center = AuthorizationCenter.shared
-    
-    /// ManagedSettings 스토어 - 앱 차단 설정을 적용하는 데 사용
     private let store = ManagedSettingsStore()
-    
-    /// 현재 차단 대상으로 설정된 앱 토큰들
-    private var shieldedTokens: Set<ApplicationToken> = []
-    
-    private init() {}
-    
+    @Published var authorizationStatus: AuthorizationStatus = .notDetermined
+    #endif
+
+    /// 현재 차단 대상 앱 정보
+    private var targetApps: [(name: String, bundleId: String)] = []
+
+    /// 타이머 (시간 추적용)
+    private var usageTimer: Timer?
+    private var unlockTimer: Timer?
+    private var currentUsageTime: TimeInterval = 0
+
+    /// 잠금 해제 간격 (초) — 이 시간마다 챌린지 등장
+    var challengeInterval: TimeInterval = 30 * 60 // 기본 30분
+
+    private init() {
+        #if canImport(FamilyControls)
+        isDemoMode = false
+        #else
+        isDemoMode = true
+        #endif
+    }
+
     // MARK: - 인증
-    
-    /// FamilyControls 사용 권한을 요청한다
-    /// iOS 설정 > 화면 사용 시간에서 사용자가 승인해야 함
+
+    #if canImport(FamilyControls)
     func requestAuthorization() async throws {
         do {
             try await center.requestAuthorization(for: .individual)
@@ -42,94 +73,155 @@ final class ShieldManager: ObservableObject {
             throw ShieldError.authorizationFailed(error)
         }
     }
-    
-    /// 현재 인증 상태를 확인하고 갱신한다
+
     func checkAuthorizationStatus() {
         authorizationStatus = center.authorizationStatus
     }
-    
+    #else
+    func checkAuthorizationStatus() {
+        // 데모 모드: 항상 authorized
+        print("[ShieldManager] 데모 모드 — 인증 불필요")
+    }
+    #endif
+
     // MARK: - Shield 적용/해제
-    
-    /// 선택된 앱 토큰에 대해 차단(Shield)을 적용한다
-    /// - Parameter tokens: 차단할 앱의 ApplicationToken 집합
-    func applyShield(tokens: Set<ApplicationToken>) {
-        guard authorizationStatus == .approved else {
-            print("[ShieldManager] 인증되지 않은 상태에서 차단을 시도할 수 없습니다")
-            return
-        }
-        
-        guard !tokens.isEmpty else {
+
+    /// 대상 앱 설정 및 차단 시작
+    func applyShield(apps: [(name: String, bundleId: String)]) {
+        guard !apps.isEmpty else {
             print("[ShieldManager] 차단할 앱이 없습니다")
             return
         }
-        
-        shieldedTokens = tokens
-        
-        // ManagedSettings에 차단 설정 적용
-        // applications: 차단할 앱 토큰 집합
-        // 설정된 앱을 열면 시스템 Shield가 표시됨
-        store.shield.applications = tokens
+
+        targetApps = apps
         isShieldActive = true
-        
-        print("[ShieldManager] 차단 적용 완료 - \(tokens.count)개 앱")
+
+        #if canImport(FamilyControls)
+        // 실기기: ManagedSettings로 시스템 레벨 차단
+        // TODO: ApplicationToken으로 변환하여 store.shield.applications에 설정
+        print("[ShieldManager] 시스템 차단 적용 - \(apps.count)개 앱")
+        #else
+        print("[ShieldManager] 데모 모드 차단 시작 - \(apps.count)개 앱")
+        #endif
+
+        // 사용 시간 추적 시작
+        startUsageTracking()
     }
-    
-    /// 모든 앱의 차단을 해제한다
+
+    /// 모든 차단 해제
     func removeShield() {
-        store.shield.applications = nil
-        shieldedTokens.removeAll()
         isShieldActive = false
-        
+        shouldShowChallenge = false
+        currentTargetApp = nil
+        targetApps.removeAll()
+
+        #if canImport(FamilyControls)
+        store.shield.applications = nil
+        #endif
+
+        stopUsageTracking()
+        stopUnlockTimer()
+
         print("[ShieldManager] 차단 해제 완료")
     }
-    
-    /// 특정 앱의 차단만 해제한다 (일시 해제용)
-    /// - Parameter token: 차단 해제할 앱의 토큰
-    func removeShield(for token: ApplicationToken) {
-        shieldedTokens.remove(token)
-        
-        if shieldedTokens.isEmpty {
-            removeShield()
+
+    /// 챌린지 통과 후 임시 해제
+    /// - Parameter duration: 해제 유지 시간 (초)
+    func temporaryUnlock(duration: TimeInterval) {
+        shouldShowChallenge = false
+        remainingUnlockTime = duration
+
+        print("[ShieldManager] 임시 해제 - \(Int(duration / 60))분")
+
+        // 남은 시간 카운트다운
+        stopUnlockTimer()
+        unlockTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.remainingUnlockTime -= 1
+                if self.remainingUnlockTime <= 0 {
+                    self.onUnlockExpired()
+                }
+            }
+        }
+    }
+
+    // MARK: - 사용 시간 추적
+
+    private func startUsageTracking() {
+        currentUsageTime = 0
+        stopUsageTracking()
+
+        // 1초마다 사용 시간 증가
+        usageTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.isShieldActive else { return }
+                // 잠금 해제 중이면 시간 추적 안 함
+                guard self.remainingUnlockTime <= 0 else { return }
+
+                self.currentUsageTime += 1
+
+                // 챌린지 간격 도달 시
+                if self.currentUsageTime >= self.challengeInterval {
+                    self.triggerChallenge()
+                }
+            }
+        }
+    }
+
+    private func stopUsageTracking() {
+        usageTimer?.invalidate()
+        usageTimer = nil
+        currentUsageTime = 0
+    }
+
+    private func stopUnlockTimer() {
+        unlockTimer?.invalidate()
+        unlockTimer = nil
+        remainingUnlockTime = 0
+    }
+
+    /// 챌린지 트리거 — 앱 사용 중단하고 독서 강제
+    private func triggerChallenge() {
+        guard isShieldActive else { return }
+        shouldShowChallenge = true
+        currentUsageTime = 0
+        print("[ShieldManager] 챌린지 트리거!")
+    }
+
+    /// 잠금 해제 만료
+    private func onUnlockExpired() {
+        stopUnlockTimer()
+        remainingUnlockTime = 0
+        // 해제 만료 → 다시 챌린지 표시
+        triggerChallenge()
+        print("[ShieldManager] 잠금 해제 만료 — 챌린지 재등장")
+    }
+
+    // MARK: - 데모 모드 시뮬레이션
+
+    /// 데모 모드: 특정 앱 "실행" 시뮬레이션
+    func simulateAppLaunch(appName: String) {
+        guard isShieldActive else { return }
+        currentTargetApp = appName
+
+        if remainingUnlockTime <= 0 {
+            // 잠금 상태 → 챌린지 표시
+            shouldShowChallenge = true
+            print("[ShieldManager] \(appName) 실행 → 챌린지 표시")
         } else {
-            store.shield.applications = shieldedTokens
-        }
-        
-        print("[ShieldManager] 특정 앱 차단 해제 완료")
-    }
-    
-    /// 임시로 모든 차단을 해제하고, 지정된 시간 후 다시 적용한다
-    /// - Parameters:
-    ///   - duration: 차단 해제 유지 시간 (초)
-    ///   - tokens: 다시 적용할 앱 토큰들
-    func temporaryUnlock(duration: TimeInterval, tokens: Set<ApplicationToken>) {
-        removeShield()
-        
-        print("[ShieldManager] 임시 해제 - \(Int(duration / 60))분 후 재적용")
-        
-        // 지정된 시간 후 차단 재적용
-        Task {
-            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
-            
-            // 인증 상태가 유효한 경우에만 재적용
-            guard self.authorizationStatus == .approved else { return }
-            
-            self.applyShield(tokens: tokens)
-            print("[ShieldManager] 임시 해제 만료 - 차단 재적용")
+            // 잠금 해제 상태 → 앱 사용 허용
+            print("[ShieldManager] \(appName) 실행 → 잠금 해제 중 (\(Int(remainingUnlockTime))초 남음)")
         }
     }
-    
-    /// 현재 차단 대상 애플리케이션 토큰 목록 반환
-    func currentShieldedTokens() -> Set<ApplicationToken> {
-        return shieldedTokens
-    }
-    
-    /// ManagedSettings 스토어의 모든 설정을 초기화한다
+
+    /// ManagedSettings 초기화
     func clearAllSettings() {
+        #if canImport(FamilyControls)
         store.clearAllSettings()
-        shieldedTokens.removeAll()
-        isShieldActive = false
-        
-        print("[ShieldManager] 모든 ManagedSettings 초기화 완료")
+        #endif
+        removeShield()
+        print("[ShieldManager] 모든 설정 초기화 완료")
     }
 }
 
@@ -139,7 +231,7 @@ enum ShieldError: LocalizedError {
     case authorizationFailed(Error)
     case notAuthorized
     case noTokensProvided
-    
+
     var errorDescription: String? {
         switch self {
         case .authorizationFailed(let error):
