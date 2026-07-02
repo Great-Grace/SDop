@@ -75,6 +75,7 @@ struct QuizQuestion: Codable, Identifiable {
 /// 읽기 콘텐츠의 카테고리 분류
 enum ContentCategory: String, Codable, CaseIterable {
     case koreanClassic  = "korean_classic"  // 한국 고전 문학
+    case internationalClassic = "internationalClassic"  // 해외 고전 문학
     case news           = "news"            // 뉴스 기사
     case english        = "english"         // 영어 학습
     case educational    = "educational"     // 교육 콘텐츠
@@ -84,6 +85,7 @@ enum ContentCategory: String, Codable, CaseIterable {
     var displayName: String {
         switch self {
         case .koreanClassic: return "한국 고전"
+        case .internationalClassic: return "해외 고전"
         case .news:          return "뉴스"
         case .english:       return "영어 학습"
         case .educational:   return "교육"
@@ -95,6 +97,7 @@ enum ContentCategory: String, Codable, CaseIterable {
     var icon: String {
         switch self {
         case .koreanClassic: return "book.closed"
+        case .internationalClassic: return "globe.americas"
         case .news:          return "newspaper"
         case .english:       return "text.book.closed"
         case .educational:   return "graduationcap"

@@ -3,6 +3,7 @@ import SwiftData
 
 struct DashboardView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var shieldManager: ShieldManager
     @Query private var profiles: [UserProfile]
     @Query(sort: \ReadingSession.startTime, order: .reverse) private var sessions: [ReadingSession]
     @State private var isActive: Bool = true
@@ -26,13 +27,11 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 24) {
-                    if true { // 데모 모드 배너 (entitlement 승인 후 제거)
-                        demoModeBanner
-                    }
+                    demoModeBanner
                     activeToggleCard
                     statsGrid
                     quickChallengeButton
-                    if ShieldManager.shared.isShieldActive {
+                    if shieldManager.isShieldActive {
                         demoAppLauncher
                     }
                     shieldedAppsList
@@ -80,9 +79,9 @@ struct DashboardView: View {
                         let apps = profile?.selectedAppNames.enumerated().map { i, name in
                             (name: name, bundleId: profile?.selectedAppBundleIds[i] ?? "")
                         } ?? []
-                        ShieldManager.shared.applyShield(apps: apps)
+                        shieldManager.applyShield(apps: apps)
                     } else {
-                        ShieldManager.shared.removeShield()
+                        shieldManager.removeShield()
                     }
                 }
         }
@@ -123,7 +122,7 @@ struct DashboardView: View {
         }
     }
 
-    // MARK: - Demo App Launcher (데모 모드 전용)
+    // MARK: - Demo App Launcher
     private var demoAppLauncher: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("앱 실행 시뮬레이션")
@@ -132,11 +131,9 @@ struct DashboardView: View {
                 .font(.caption).foregroundStyle(.white.opacity(0.5))
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 12) {
-                ForEach(DemoApp.presets.filter { app in
-                    profile?.selectedAppBundleIds.contains(app.bundleId) ?? false
-                }) { app in
+                ForEach(filteredDemoApps) { app in
                     Button {
-                        ShieldManager.shared.simulateAppLaunch(appName: app.name)
+                        shieldManager.simulateAppLaunch(appName: app.name)
                     } label: {
                         VStack(spacing: 6) {
                             Image(systemName: app.icon)
@@ -153,7 +150,22 @@ struct DashboardView: View {
                     }
                 }
             }
+
+            // 선택된 앱이 없으면 전체 프리셋 표시
+            if filteredDemoApps.isEmpty {
+                Text("온보딩에서 앱을 선택했는지 확인하세요")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.4))
+            }
         }
+    }
+
+    /// 프로필에 선택된 앱만 필터링, 없으면 전체 프리셋
+    private var filteredDemoApps: [DemoApp] {
+        guard let profile else { return DemoApp.presets }
+        let selected = profile.selectedAppBundleIds
+        if selected.isEmpty { return DemoApp.presets }
+        return DemoApp.presets.filter { selected.contains($0.bundleId) }
     }
 
     // MARK: - Shielded Apps

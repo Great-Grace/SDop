@@ -4,11 +4,13 @@ import SwiftData
 @main
 struct SDopApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var shieldManager = ShieldManager.shared
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(appState)
+                .environmentObject(shieldManager)
                 .onAppear {
                     appState.checkAuthorization()
                 }
@@ -24,6 +26,7 @@ struct SDopApp: App {
 // MARK: - Root View
 struct RootView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var shieldManager: ShieldManager
     @Query private var profiles: [UserProfile]
 
     var body: some View {
@@ -45,7 +48,7 @@ struct RootView: View {
             }
 
             // 챌린지 오버레이 — 시간 초과 시 전체화면 간섭
-            if ShieldManager.shared.shouldShowChallenge {
+            if shieldManager.shouldShowChallenge {
                 ChallengeOverlay()
                     .transition(.opacity)
                     .zIndex(999)
@@ -56,6 +59,7 @@ struct RootView: View {
 
 // MARK: - 챌린지 오버레이
 struct ChallengeOverlay: View {
+    @EnvironmentObject var shieldManager: ShieldManager
     @State private var showReading = false
 
     var body: some View {
@@ -73,6 +77,12 @@ struct ChallengeOverlay: View {
                     Text("도파민을 원하면 책임을 져라!")
                         .font(.title2).fontWeight(.bold)
                         .foregroundStyle(.white)
+
+                    if let app = shieldManager.currentTargetApp {
+                        Text("\(app) 사용 시간이 초과되었습니다")
+                            .font(.subheadline)
+                            .foregroundStyle(Color("AccentOrange"))
+                    }
 
                     Text("앱을 사용하려면 먼저 독서 챌린지를\n완료해야 합니다")
                         .font(.body)
@@ -138,7 +148,7 @@ struct MainTabView: View {
 @MainActor
 class AppState: ObservableObject {
     @Published var isOnboarding: Bool = false
-    @Published var isAuthorized: Bool = true // 데모 모드: 항상 true
+    @Published var isAuthorized: Bool = true
 
     func checkAuthorization() {
         // 데모 모드: 인증 불필요
