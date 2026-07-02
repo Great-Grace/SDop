@@ -21,7 +21,7 @@ struct SDopApp: App {
     }
 }
 
-// MARK: - Root View (handles onboarding vs main)
+// MARK: - Root View
 struct RootView: View {
     @EnvironmentObject var appState: AppState
     @Query private var profiles: [UserProfile]
@@ -44,7 +44,7 @@ struct RootView: View {
                 }
             }
 
-            // 챌린지 오버레이 — 앱 사용 중 시간 초과 시 표시
+            // 챌린지 오버레이 — 시간 초과 시 전체화면 간섭
             if ShieldManager.shared.shouldShowChallenge {
                 ChallengeOverlay()
                     .transition(.opacity)
@@ -54,7 +54,7 @@ struct RootView: View {
     }
 }
 
-// MARK: - 챌린지 오버레이 (앱 간섭용)
+// MARK: - 챌린지 오버레이
 struct ChallengeOverlay: View {
     @State private var showReading = false
 
@@ -119,21 +119,15 @@ struct MainTabView: View {
     var body: some View {
         TabView(selection: $selectedTab) {
             DashboardView()
-                .tabItem {
-                    Label("대시보드", systemImage: "chart.bar.fill")
-                }
+                .tabItem { Label("대시보드", systemImage: "chart.bar.fill") }
                 .tag(Tab.dashboard)
 
             ContentLibraryView()
-                .tabItem {
-                    Label("도서관", systemImage: "books.vertical.fill")
-                }
+                .tabItem { Label("도서관", systemImage: "books.vertical.fill") }
                 .tag(Tab.library)
 
             SettingsView()
-                .tabItem {
-                    Label("설정", systemImage: "gearshape.fill")
-                }
+                .tabItem { Label("설정", systemImage: "gearshape.fill") }
                 .tag(Tab.settings)
         }
         .tint(Color("AccentOrange"))
@@ -144,24 +138,10 @@ struct MainTabView: View {
 @MainActor
 class AppState: ObservableObject {
     @Published var isOnboarding: Bool = false
-    @Published var isAuthorized: Bool = false
+    @Published var isAuthorized: Bool = true // 데모 모드: 항상 true
 
     func checkAuthorization() {
-        ShieldManager.shared.checkAuthorizationStatus()
-        #if canImport(FamilyControls)
-        isAuthorized = ShieldManager.shared.authorizationStatus == .approved
-        #else
-        isAuthorized = true // 데모 모드: 항상 authorized
-        #endif
-    }
-
-    func requestAuthorization() async throws {
-        #if canImport(FamilyControls)
-        try await ShieldManager.shared.requestAuthorization()
-        isAuthorized = true
-        #else
-        isAuthorized = true
-        #endif
+        // 데모 모드: 인증 불필요
     }
 
     func completeOnboarding() {

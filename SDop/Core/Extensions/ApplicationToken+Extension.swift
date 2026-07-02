@@ -1,16 +1,8 @@
 import Foundation
-#if canImport(FamilyControls)
-import FamilyControls
-#endif
 
-// MARK: - ApplicationToken / DemoToken 타입 통합
-// entitlement 없이도 빌드 가능하도록 조건부 컴파일
+// MARK: - AppToken (데모 모드 전용)
+// FamilyControls entitlement 승인 후 ApplicationToken으로 교체 예정
 
-#if canImport(FamilyControls)
-// 실기기: ApplicationToken 그대로 사용
-typealias AppToken = ApplicationToken
-#else
-// 데모 모드: UUID 기반 가짜 토큰
 struct AppToken: Hashable, Codable, Identifiable {
     let id: UUID
     let bundleIdentifier: String
@@ -22,15 +14,14 @@ struct AppToken: Hashable, Codable, Identifiable {
         self.displayName = displayName
     }
 }
-#endif
 
-// MARK: - 데모 모드 앱 목록 ( entitlement 없을 때 표시할 가상 앱들)
+// MARK: - 데모 모드 앱 목록
 
 struct DemoApp: Identifiable, Hashable {
     let id = UUID()
     let name: String
     let bundleId: String
-    let icon: String // SF Symbol name
+    let icon: String
 
     static let presets: [DemoApp] = [
         DemoApp(name: "Instagram", bundleId: "com.burbn.instagram", icon: "camera.fill"),
@@ -43,21 +34,3 @@ struct DemoApp: Identifiable, Hashable {
         DemoApp(name: "디스코드", bundleId: "com.hackinc.discord", icon: "headphones"),
     ]
 }
-
-// MARK: - ApplicationToken extensions (실기기 전용)
-
-#if canImport(FamilyControls)
-extension ApplicationToken {
-    var debugDescription: String {
-        "ApplicationToken(\(String(describing: self)))"
-    }
-}
-
-extension Set where Element == ApplicationToken {
-    var asArray: [ApplicationToken] { Array(self) }
-}
-
-extension Array where Element == ApplicationToken {
-    var asSet: Set<ApplicationToken> { Set(self) }
-}
-#endif
