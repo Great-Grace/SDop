@@ -13,6 +13,36 @@ struct ReadingContent: Codable, Identifiable, Hashable {
     let difficulty: Difficulty
     let coverImageName: String? // 에셋 이미지 이름 (옵션)
     
+    // MARK: Custom Decoding (JSON 파일 호환)
+    enum CodingKeys: String, CodingKey {
+        case id, title, author, category, pages, quiz, difficulty, coverImageName
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        title = try container.decode(String.self, forKey: .title)
+        author = try container.decode(String.self, forKey: .author)
+        category = try container.decodeIfPresent(ContentCategory.self, forKey: .category) ?? .koreanClassic
+        pages = try container.decode([Page].self, forKey: .pages)
+        quiz = try container.decode([QuizQuestion].self, forKey: .quiz)
+        difficulty = try container.decodeIfPresent(Difficulty.self, forKey: .difficulty) ?? .medium
+        coverImageName = try container.decodeIfPresent(String.self, forKey: .coverImageName)
+    }
+    
+    // MARK: Memberwise Init (코드에서 직접 생성 시 사용)
+    init(id: UUID, title: String, author: String, category: ContentCategory,
+         pages: [Page], quiz: [QuizQuestion], difficulty: Difficulty, coverImageName: String?) {
+        self.id = id
+        self.title = title
+        self.author = author
+        self.category = category
+        self.pages = pages
+        self.quiz = quiz
+        self.difficulty = difficulty
+        self.coverImageName = coverImageName
+    }
+    
     /// 전체 페이지 수
     var pageCount: Int { pages.count }
     
@@ -57,6 +87,29 @@ struct QuizQuestion: Codable, Identifiable {
     let options: [String]       // 4지선다
     let correctIndex: Int       // 정답 인덱스 (0-3)
     let explanation: String     // 정답 해설
+    
+    // MARK: Custom Decoding (JSON 파일 호환)
+    enum CodingKeys: String, CodingKey {
+        case id, question, options, correctIndex, explanation
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        question = try container.decode(String.self, forKey: .question)
+        options = try container.decode([String].self, forKey: .options)
+        correctIndex = try container.decode(Int.self, forKey: .correctIndex)
+        explanation = try container.decode(String.self, forKey: .explanation)
+    }
+    
+    // MARK: Memberwise Init (코드에서 직접 생성 시 사용)
+    init(id: UUID, question: String, options: [String], correctIndex: Int, explanation: String) {
+        self.id = id
+        self.question = question
+        self.options = options
+        self.correctIndex = correctIndex
+        self.explanation = explanation
+    }
     
     /// 정답 텍스트 반환
     var correctAnswer: String {

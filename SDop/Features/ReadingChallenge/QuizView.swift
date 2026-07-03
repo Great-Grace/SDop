@@ -12,10 +12,10 @@ struct QuizView: View {
     @State private var isFinished: Bool = false
     
     private var progress: Double {
-        Double(currentQuestion + 1) / Double(questions.count)
+        questions.count > 0 ? Double(currentQuestion + 1) / Double(questions.count) : 0
     }
     private var score: Double {
-        Double(correctAnswers) / Double(questions.count)
+        questions.count > 0 ? Double(correctAnswers) / Double(questions.count) : 0
     }
     private var passed: Bool { score >= 0.6 }
     
@@ -204,7 +204,6 @@ struct QuizView: View {
                 if passed {
                     Button {
                         onComplete(score, true)
-                        dismiss()
                     } label: {
                         Text("앱 해제하기")
                             .font(.headline).foregroundStyle(.white)

@@ -3,6 +3,7 @@ import SwiftData
 
 struct ReadingChallengeView: View {
     let content: ReadingContent
+    var onComplete: ((Double, Bool) -> Void)? = nil
     
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -15,7 +16,7 @@ struct ReadingChallengeView: View {
     let minimumReadTime: TimeInterval = 300 // 5 minutes
     
     private var totalPages: Int { content.pages.count }
-    private var progress: Double { Double(currentPage + 1) / Double(totalPages) }
+    private var progress: Double { totalPages > 0 ? Double(currentPage + 1) / Double(totalPages) : 0 }
     private var hasReadEnoughTime: Bool { elapsedTime >= minimumReadTime }
     private var hasReadAllPages: Bool { currentPage >= totalPages - 1 }
     private var canFinish: Bool { hasReadEnoughTime && hasReadAllPages }
@@ -52,6 +53,7 @@ struct ReadingChallengeView: View {
                 QuizView(questions: content.quiz) { score, passed in
                     if passed {
                         saveSession(score: score, passed: true)
+                        onComplete?(score, passed)
                         dismiss()
                     } else {
                         showQuiz = false
@@ -104,7 +106,14 @@ struct ReadingChallengeView: View {
     
     // MARK: - Page Content
     private var pageContent: some View {
-        Text(content.pages[currentPage].content)
+        Group {
+            if content.pages.indices.contains(currentPage) {
+                Text(content.pages[currentPage].content)
+            } else {
+                Text("콘텐츠를 불러올 수 없습니다.")
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
             .font(.system(.body, design: .serif))
             .foregroundStyle(Color(white: 0.85))
             .lineSpacing(10)
@@ -196,6 +205,7 @@ struct ReadingChallengeView: View {
     }
     
     private func startTimer() {
+        stopTimer()
         readingStartTime = Date()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in

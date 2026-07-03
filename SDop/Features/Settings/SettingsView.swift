@@ -3,6 +3,7 @@ import SwiftData
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [UserProfile]
     @State private var showResetAlert = false
     
@@ -114,11 +115,30 @@ struct SettingsView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .alert("데이터 초기화", isPresented: $showResetAlert) {
                 Button("취소", role: .cancel) {}
-                Button("초기화", role: .destructive) { appState.isOnboarding = true }
+                Button("초기화", role: .destructive) {
+                    resetAllData()
+                }
             } message: {
                 Text("모든 데이터가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
             }
         }
+    }
+    
+    private func resetAllData() {
+        // Delete all SwiftData objects
+        do {
+            try modelContext.delete(model: UserProfile.self)
+            try modelContext.delete(model: ReadingSession.self)
+            try modelContext.delete(model: TimeLimit.self)
+        } catch {
+#if DEBUG
+            print("[SettingsView] 데이터 초기화 실패: \(error)")
+#endif
+        }
+        // Reset ShieldManager
+        ShieldManager.shared.clearAllSettings()
+        // Return to onboarding
+        appState.isOnboarding = true
     }
     
     private func settingsRow(icon: String, title: String, subtitle: String?) -> some View {
