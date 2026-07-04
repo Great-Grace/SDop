@@ -31,7 +31,12 @@ final class ShieldManager: ObservableObject {
     private var currentUsageTime: TimeInterval = 0
 
     /// 챌린지 간격 (초) — 이 시간마다 챌린지 등장
-    var challengeInterval: TimeInterval = 30 * 60
+    var challengeInterval: TimeInterval {
+        get { UserDefaults.standard.double(forKey: "challengeIntervalSeconds") > 0
+              ? UserDefaults.standard.double(forKey: "challengeIntervalSeconds")
+              : 30 * 60 }
+        set { UserDefaults.standard.set(newValue, forKey: "challengeIntervalSeconds") }
+    }
 
     private init() {}
 
@@ -155,6 +160,7 @@ final class ShieldManager: ObservableObject {
     /// 모든 설정 초기화
     func clearAllSettings() {
         removeShield()
+        UserDefaults.standard.removeObject(forKey: "challengeIntervalSeconds")
 #if DEBUG
         print("[ShieldManager] 모든 설정 초기화")
 #endif

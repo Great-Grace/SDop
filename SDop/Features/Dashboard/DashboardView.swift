@@ -83,7 +83,11 @@ struct DashboardView: View {
                 .tint(Color("AccentOrange"))
                 .labelsHidden()
                 .scaleEffect(1.1)
+                .accessibilityLabel("SDop 활성화 토글")
+                .accessibilityValue(isActive ? "활성화됨" : "비활성화됨")
+                .accessibilityHint("SDop 앱 차단 기능을 켜거나 끄려면 두 번 탭하세요")
                 .onChange(of: isActive) { _, newValue in
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     if newValue {
                         let apps = profile?.selectedAppNames.enumerated().map { i, name in
                             (name: name, bundleId: profile?.selectedAppBundleIds[i] ?? "")
@@ -111,9 +115,15 @@ struct DashboardView: View {
     // MARK: - Stats
     private var statsGrid: some View {
         HStack(spacing: 12) {
-            StatCard(icon: "book.pages.fill", value: "\(todayPages)", label: "오늘 읽은 페이지")
+            StatCard(icon: "book.pages.fill", value: todayPages == 0 ? "아직 읽지 않았어요" : "\(todayPages)", label: "오늘 읽은 페이지")
+                .accessibilityLabel("오늘 읽은 페이지")
+                .accessibilityValue(todayPages == 0 ? "아직 읽지 않았어요" : "\(todayPages)페이지")
             StatCard(icon: "flame.fill", value: "\(profile?.streakDays ?? 0)일", label: "연속 독서")
+                .accessibilityLabel("연속 독서")
+                .accessibilityValue("\(profile?.streakDays ?? 0)일")
             StatCard(icon: "checkmark.circle.fill", value: "\(todayPassed)", label: "통과한 퀴즈")
+                .accessibilityLabel("통과한 퀴즈")
+                .accessibilityValue("\(todayPassed)개")
         }
     }
 
@@ -135,6 +145,8 @@ struct DashboardView: View {
             .background(Color("AccentOrange"))
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
+        .accessibilityLabel("독서 챌린지 시작")
+        .accessibilityHint("독서 챌린지를 시작하려면 두 번 탭하세요")
         .fullScreenCover(isPresented: $showChallenge) {
             ReadingChallengeView(content: ContentService.shared.recommendedContent() ?? ContentService.shared.sampleContents().first ?? ReadingContent(id: UUID(), title: "샘플", author: "SDop", category: .koreanClassic, pages: [Page(pageNumber: 1, content: "샘플 콘텐츠입니다.")], quiz: [QuizQuestion(id: UUID(), question: "퀴즈", options: ["A", "B", "C", "D"], correctIndex: 0, explanation: "해설")], difficulty: .easy, coverImageName: nil))
         }
@@ -166,6 +178,8 @@ struct DashboardView: View {
                         .background(Color.white.opacity(0.05))
                         .clipShape(RoundedRectangle(cornerRadius: 10))
                     }
+                    .accessibilityLabel("\(app.name) 앱 실행")
+                    .accessibilityHint("\(app.name) 앱을 시뮬레이션으로 실행하려면 두 번 탭하세요")
                 }
             }
 
@@ -210,13 +224,20 @@ struct DashboardView: View {
                     }
                 }
             } else {
-                Text("설정에서 앱을 추가하세요")
-                    .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.4))
-                    .padding(16)
-                    .frame(maxWidth: .infinity)
-                    .background(Color.white.opacity(0.03))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                VStack(spacing: 8) {
+                    Image(systemName: "lock.slash")
+                        .font(.title2)
+                        .foregroundStyle(.white.opacity(0.2))
+                    Text("설정에서 앱을 추가하세요")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(Color.white.opacity(0.03))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .accessibilityLabel("간섭 대상 앱 없음")
+                .accessibilityHint("설정에서 간섭 대상 앱을 추가하세요")
             }
         }
     }

@@ -3,11 +3,27 @@ import SwiftData
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @EnvironmentObject var shieldManager: ShieldManager
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [UserProfile]
     @State private var showResetAlert = false
     
     private var profile: UserProfile? { profiles.first }
+    
+    // Read persisted preferences for display
+    @AppStorage("selectedDifficulty") private var selectedDifficulty: String = Difficulty.medium.rawValue
+    @AppStorage("selectedCategories") private var selectedCategoriesRaw: String = ContentCategory.koreanClassic.rawValue
+    @AppStorage("unlockDurationMinutes") private var unlockDurationMinutes: Int = 30
+    
+    private var currentDifficulty: Difficulty {
+        Difficulty(rawValue: selectedDifficulty) ?? .medium
+    }
+    
+    private var categoriesDisplay: String {
+        let raws = selectedCategoriesRaw.components(separatedBy: ",")
+        let names = raws.compactMap { ContentCategory(rawValue: $0)?.displayName }
+        return names.isEmpty ? "한국 고전" : names.joined(separator: ", ")
+    }
     
     var body: some View {
         NavigationStack {
@@ -43,13 +59,13 @@ struct SettingsView: View {
                     NavigationLink {
                         TimeLimitsView()
                     } label: {
-                        settingsRow(icon: "clock.fill", title: "사용 시간 제한", subtitle: "30분 / 앱")
+                        settingsRow(icon: "clock.fill", title: "챌린지 간격", subtitle: "\(Int(shieldManager.challengeInterval / 60))분")
                     }
                     
                     NavigationLink {
                         UnlockDurationView()
                     } label: {
-                        settingsRow(icon: "lock.open.fill", title: "해제 지속 시간", subtitle: "퀴즈 통과 후 30분")
+                        settingsRow(icon: "lock.open.fill", title: "해제 지속 시간", subtitle: "퀴즈 통과 후 \(unlockDurationMinutes)분")
                     }
                 }
                 .listRowBackground(Color.white.opacity(0.05))
@@ -59,13 +75,13 @@ struct SettingsView: View {
                     NavigationLink {
                         ContentPreferencesView()
                     } label: {
-                        settingsRow(icon: "book.fill", title: "독서 선호 설정", subtitle: "한국 고전")
+                        settingsRow(icon: "book.fill", title: "독서 선호 설정", subtitle: categoriesDisplay)
                     }
                     
                     NavigationLink {
                         QuizDifficultyView()
                     } label: {
-                        settingsRow(icon: "brain.head.profile", title: "퀴즈 난이도", subtitle: "보통")
+                        settingsRow(icon: "brain.head.profile", title: "퀴즈 난이도", subtitle: currentDifficulty.displayName)
                     }
                 }
                 .listRowBackground(Color.white.opacity(0.05))
@@ -135,6 +151,10 @@ struct SettingsView: View {
             print("[SettingsView] 데이터 초기화 실패: \(error)")
 #endif
         }
+        // Clear persisted preferences
+        UserDefaults.standard.removeObject(forKey: "selectedDifficulty")
+        UserDefaults.standard.removeObject(forKey: "selectedCategories")
+        UserDefaults.standard.removeObject(forKey: "unlockDurationMinutes")
         // Reset ShieldManager
         ShieldManager.shared.clearAllSettings()
         // Return to onboarding
@@ -159,32 +179,43 @@ struct SettingsView: View {
 // MARK: - Sub-views
 
 struct TargetAppsView: View {
-    @State private var selectedApps: Set<String> = ["Instagram", "YouTube", "TikTok"]
-    let allApps = ["Instagram", "YouTube", "TikTok", "X (Twitter)", "Facebook", "Netflix", "카카오톡", "네이버", "쿠팡", "당근"]
+    @Environment(\.modelContext) private var modelContext
+    @Query private var profiles: [UserProfile]
+    @EnvironmentObject var shieldManager: ShieldManager
+    
+    private var profile: UserProfile? { profiles.first }
     
     var body: some View {
         List {
             Section {
-                Text("차단할 앱을 선택하세요 (최대 5개)")
+                let maxApps = profile?.isPremium == true ? "무제한" : "최대 3개"
+                Text("차단할 앱을 선택하세요 (\(maxApps))")
                     .font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                if profile?.isPremium != true && (profile?.selectedAppCount ?? 0) >= 3 {
+                    Text("무료 버전은 최대 3개까지 선택 가능합니다")
+                        .font(.caption).foregroundStyle(.orange)
+                }
             }
             .listRowBackground(Color.black)
             
             Section {
-                ForEach(allApps, id: \.self) { app in
+                ForEach(DemoApp.presets) { app in
                     Button {
-                        if selectedApps.contains(app) { selectedApps.remove(app) }
-                        else if selectedApps.count < 5 { selectedApps.insert(app) }
+                        toggleApp(app)
                     } label: {
                         HStack {
-                            Text(app).foregroundStyle(.white)
+                            Image(systemName: app.icon)
+                                .foregroundStyle(isAppSelected(app) ? Color("AccentOrange") : .white.opacity(0.6))
+                                .frame(width: 28)
+                            Text(app.name).foregroundStyle(.white)
                             Spacer()
-                            if selectedApps.contains(app) {
+                            if isAppSelected(app) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(Color("AccentOrange"))
                             }
                         }
                     }
+                    .disabled(!isAppSelected(app) && !(profile?.canAddMoreApps ?? false))
                 }
             }
             .listRowBackground(Color.white.opacity(0.05))
@@ -194,20 +225,45 @@ struct TargetAppsView: View {
         .navigationTitle("대상 앱 관리")
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
+    
+    private func isAppSelected(_ app: DemoApp) -> Bool {
+        profile?.selectedAppBundleIds.contains(app.bundleId) ?? false
+    }
+    
+    private func toggleApp(_ app: DemoApp) {
+        guard let profile else { return }
+        
+        if isAppSelected(app) {
+            profile.removeApp(bundleId: app.bundleId)
+        } else {
+            profile.addApp(name: app.name, bundleId: app.bundleId)
+        }
+        
+        // Update ShieldManager with new app list
+        let selectedApps = DemoApp.presets.filter { app in
+            profile.selectedAppBundleIds.contains(app.bundleId)
+        }
+        let shieldApps = selectedApps.map { (name: $0.name, bundleId: $0.bundleId) }
+        shieldManager.applyShield(apps: shieldApps)
+    }
 }
 
 struct TimeLimitsView: View {
-    @State private var dailyLimit: Int = 30
+    @EnvironmentObject var shieldManager: ShieldManager
+    
+    private let options = [15, 30, 60, 120]
     
     var body: some View {
         List {
-            Section("일일 사용 제한") {
-                ForEach([15, 30, 60, 120], id: \.self) { min in
-                    Button { dailyLimit = min } label: {
+            Section("챌린지 간격") {
+                ForEach(options, id: \.self) { min in
+                    Button {
+                        shieldManager.challengeInterval = TimeInterval(min * 60)
+                    } label: {
                         HStack {
                             Text("\(min)분").foregroundStyle(.white)
                             Spacer()
-                            if dailyLimit == min {
+                            if Int(shieldManager.challengeInterval / 60) == min {
                                 Image(systemName: "checkmark").foregroundStyle(Color("AccentOrange"))
                             }
                         }
@@ -217,26 +273,30 @@ struct TimeLimitsView: View {
             .listRowBackground(Color.white.opacity(0.05))
             
             Section {
-                Text("설정한 시간이 지나면 해당 앱에 차단막이 표시됩니다.")
+                Text("설정한 시간이 지나면 독서 챌린지가 나타납니다.")
                     .font(.caption).foregroundStyle(.white.opacity(0.5))
             }
             .listRowBackground(Color.black)
         }
         .scrollContentBackground(.hidden)
         .background(Color.black.ignoresSafeArea())
-        .navigationTitle("사용 시간 제한")
+        .navigationTitle("챌린지 간격")
         .toolbarColorScheme(.dark, for: .navigationBar)
     }
 }
 
 struct UnlockDurationView: View {
-    @State private var duration: Int = 30
+    @AppStorage("unlockDurationMinutes") private var duration: Int = 30
+    
+    private let options = [15, 30, 60, 120]
     
     var body: some View {
         List {
             Section("퀴즈 통과 후 해제 시간") {
-                ForEach([15, 30, 60, 120], id: \.self) { min in
-                    Button { duration = min } label: {
+                ForEach(options, id: \.self) { min in
+                    Button {
+                        duration = min
+                    } label: {
                         HStack {
                             Text("\(min)분").foregroundStyle(.white)
                             Spacer()
@@ -248,6 +308,12 @@ struct UnlockDurationView: View {
                 }
             }
             .listRowBackground(Color.white.opacity(0.05))
+            
+            Section {
+                Text("퀴즈를 통과하면 설정한 시간 동안 앱을 사용할 수 있습니다.")
+                    .font(.caption).foregroundStyle(.white.opacity(0.5))
+            }
+            .listRowBackground(Color.black)
         }
         .scrollContentBackground(.hidden)
         .background(Color.black.ignoresSafeArea())
@@ -257,15 +323,21 @@ struct UnlockDurationView: View {
 }
 
 struct ContentPreferencesView: View {
-    @State private var selectedCategories: Set<ContentCategory> = [.koreanClassic]
+    @AppStorage("selectedCategories") private var selectedCategoriesRaw: String = ContentCategory.koreanClassic.rawValue
+    
+    @State private var selectedCategories: Set<ContentCategory> = []
     
     var body: some View {
         List {
             Section("선호하는 콘텐츠 카테고리") {
                 ForEach(ContentCategory.allCases, id: \.self) { category in
                     Button {
-                        if selectedCategories.contains(category) { selectedCategories.remove(category) }
-                        else { selectedCategories.insert(category) }
+                        if selectedCategories.contains(category) {
+                            selectedCategories.remove(category)
+                        } else {
+                            selectedCategories.insert(category)
+                        }
+                        persistCategories()
                     } label: {
                         HStack {
                             Label(category.displayName, systemImage: category.icon)
@@ -280,22 +352,49 @@ struct ContentPreferencesView: View {
                 }
             }
             .listRowBackground(Color.white.opacity(0.05))
+            
+            Section {
+                Text("선택한 카테고리의 콘텐츠가 우선 표시됩니다.")
+                    .font(.caption).foregroundStyle(.white.opacity(0.5))
+            }
+            .listRowBackground(Color.black)
         }
         .scrollContentBackground(.hidden)
         .background(Color.black.ignoresSafeArea())
         .navigationTitle("독서 선호 설정")
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .onAppear {
+            loadCategories()
+        }
+    }
+    
+    private func loadCategories() {
+        let raws = selectedCategoriesRaw.components(separatedBy: ",")
+        selectedCategories = Set(raws.compactMap { ContentCategory(rawValue: $0) })
+        if selectedCategories.isEmpty {
+            selectedCategories = [.koreanClassic]
+        }
+    }
+    
+    private func persistCategories() {
+        let raw = selectedCategories.map { $0.rawValue }.joined(separator: ",")
+        selectedCategoriesRaw = raw
     }
 }
 
 struct QuizDifficultyView: View {
+    @AppStorage("selectedDifficulty") private var selectedDifficultyRaw: String = Difficulty.medium.rawValue
+    
     @State private var difficulty: Difficulty = .medium
     
     var body: some View {
         List {
             Section("퀴즈 난이도") {
                 ForEach(Difficulty.allCases, id: \.self) { diff in
-                    Button { difficulty = diff } label: {
+                    Button {
+                        difficulty = diff
+                        selectedDifficultyRaw = diff.rawValue
+                    } label: {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(diff.displayName).foregroundStyle(.white)
@@ -311,11 +410,20 @@ struct QuizDifficultyView: View {
                 }
             }
             .listRowBackground(Color.white.opacity(0.05))
+            
+            Section {
+                Text("난이도에 따라 퀴즈의 깊이와 통과 기준이 달라집니다.")
+                    .font(.caption).foregroundStyle(.white.opacity(0.5))
+            }
+            .listRowBackground(Color.black)
         }
         .scrollContentBackground(.hidden)
         .background(Color.black.ignoresSafeArea())
         .navigationTitle("퀴즈 난이도")
         .toolbarColorScheme(.dark, for: .navigationBar)
+        .onAppear {
+            difficulty = Difficulty(rawValue: selectedDifficultyRaw) ?? .medium
+        }
     }
     
     private func diffDescription(_ diff: Difficulty) -> String {

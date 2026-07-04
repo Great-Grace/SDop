@@ -77,6 +77,8 @@ struct OnboardingView: View {
             Spacer()
 
             nextButton("시작하기") { currentStep = .concept }
+                .accessibilityLabel("시작하기")
+                .accessibilityHint("온보딩을 시작하려면 두 번 탭하세요")
         }
     }
 
@@ -95,6 +97,8 @@ struct OnboardingView: View {
             Spacer()
 
             nextButton("다음") { currentStep = .selectApps }
+                .accessibilityLabel("다음")
+                .accessibilityHint("다음 단계로 이동하려면 두 번 탭하세요")
         }
     }
 
@@ -139,7 +143,11 @@ struct OnboardingView: View {
                             } else if selectedAppIds.count < 3 {
                                 selectedAppIds.insert(app.id)
                             }
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         }
+                        .accessibilityLabel("\(app.name) 앱")
+                        .accessibilityValue(selectedAppIds.contains(app.id) ? "선택됨" : "선택되지 않음")
+                        .accessibilityHint(selectedAppIds.contains(app.id) ? "선택을 해제하려면 두 번 탭하세요" : "이 앱을 제한 목록에 추가하려면 두 번 탭하세요")
                     }
                 }
                 .padding(.horizontal, 24)
@@ -148,6 +156,8 @@ struct OnboardingView: View {
             nextButton("다음 (\(selectedAppIds.count)개 선택)") { currentStep = .setLimits }
                 .disabled(selectedAppIds.isEmpty)
                 .opacity(selectedAppIds.isEmpty ? 0.5 : 1)
+                .accessibilityLabel("다음: \(selectedAppIds.count)개 앱 선택됨")
+                .accessibilityHint("시간 설정 단계로 이동하려면 두 번 탭하세요")
         }
     }
 
@@ -181,6 +191,9 @@ struct OnboardingView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color("AccentOrange"), lineWidth: 1))
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+                        .accessibilityLabel("\(min)분")
+                        .accessibilityValue(selectedMinutes == min ? "선택됨" : "선택되지 않음")
+                        .accessibilityHint("챌린지 간격을 \(min)분으로 설정하려면 두 번 탭하세요")
                     }
                 }
             }
@@ -198,6 +211,8 @@ struct OnboardingView: View {
                     .background(Color("AccentOrange"))
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             }
+            .accessibilityLabel("설정 완료")
+            .accessibilityHint("온보딩을 완료하고 SDop을 시작하려면 두 번 탭하세요")
             .padding(.horizontal, 32).padding(.bottom, 48)
         }
     }

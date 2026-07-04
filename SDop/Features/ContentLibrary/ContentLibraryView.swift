@@ -30,9 +30,26 @@ struct ContentLibraryView: View {
                         GridItem(.flexible(), spacing: 16),
                         GridItem(.flexible(), spacing: 16)
                     ], spacing: 16) {
-                        ForEach(filteredContents) { content in
-                            BookCard(content: content)
-                                .onTapGesture { selectedContent = content }
+                        if filteredContents.isEmpty {
+                            VStack(spacing: 12) {
+                                Image(systemName: "book.closed")
+                                    .font(.system(size: 48))
+                                    .foregroundStyle(.white.opacity(0.2))
+                                Text(searchText.isEmpty && selectedCategory == nil
+                                     ? "이 카테고리에 아직 책이 없습니다"
+                                     : "검색 결과가 없습니다")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.white.opacity(0.4))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 60)
+                        } else {
+                            ForEach(filteredContents) { content in
+                                BookCard(content: content)
+                                    .onTapGesture { selectedContent = content }
+                                    .accessibilityLabel("\(content.title), \(content.author)")
+                                    .accessibilityHint("책 상세 정보를 보려면 두 번 탭하세요")
+                            }
                         }
                     }
                     .padding(.horizontal, 16)
@@ -41,6 +58,8 @@ struct ContentLibraryView: View {
             }
             .background(Color.black.ignoresSafeArea())
             .searchable(text: $searchText, prompt: "제목, 작가 검색...")
+            .accessibilityLabel("도서 검색")
+            .accessibilityHint("제목이나 작가 이름으로 검색하세요")
             .navigationTitle("도서관")
             .navigationBarTitleDisplayMode(.large)
             .toolbarColorScheme(.dark, for: .navigationBar)
@@ -62,10 +81,14 @@ struct ContentLibraryView: View {
                 CategoryChip(label: "전체", isSelected: selectedCategory == nil) {
                     selectedCategory = nil
                 }
+                .accessibilityLabel("전체 카테고리")
+                .accessibilityHint(selectedCategory == nil ? "선택됨" : "전체 카테고리를 보려면 두 번 탭하세요")
                 ForEach(ContentCategory.allCases, id: \.self) { category in
                     CategoryChip(label: category.displayName, isSelected: selectedCategory == category) {
                         selectedCategory = category
                     }
+                    .accessibilityLabel("\(category.displayName) 카테고리")
+                    .accessibilityHint(selectedCategory == category ? "선택됨" : "\(category.displayName) 카테고리를 보려면 두 번 탭하세요")
                 }
             }
             .padding(.horizontal, 16)
@@ -188,6 +211,8 @@ struct BookDetailView: View {
                         .background(Color("AccentOrange"))
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
+                .accessibilityLabel("독서 시작")
+                .accessibilityHint("독서 챌린지를 시작하려면 두 번 탭하세요")
                 .padding(.horizontal, 20).padding(.vertical, 12)
                 .background(Color.black.opacity(0.9))
             }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct QuizView: View {
     let questions: [QuizQuestion]
@@ -84,6 +85,8 @@ struct QuizView: View {
                         .background(Color("AccentOrange"))
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
+                .accessibilityLabel(currentQuestion < questions.count - 1 ? "다음 문제" : "결과 보기")
+                .accessibilityHint(currentQuestion < questions.count - 1 ? "다음 문제로 이동하려면 두 번 탭하세요" : "퀴즈 결과를 보려면 두 번 탭하세요")
                 .padding(.horizontal, 20).padding(.bottom, 32)
             }
         }
@@ -99,7 +102,12 @@ struct QuizView: View {
         return Button {
             guard selectedAnswer == nil else { return }
             selectedAnswer = index
-            if isCorrect { correctAnswers += 1 }
+            if isCorrect {
+                correctAnswers += 1
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
             withAnimation(.spring(response: 0.3)) { showExplanation = true }
         } label: {
             HStack(spacing: 16) {
@@ -125,6 +133,8 @@ struct QuizView: View {
             .shadow(color: isSelected ? Color("AccentOrange").opacity(0.2) : .clear, radius: 5, x: 0, y: 3)
             .scaleEffect(isSelected ? 1.02 : 1.0)
         }
+        .accessibilityLabel("선택지 \(index + 1): \(question.options[index])")
+        .accessibilityHint(showExplanation ? (isCorrect ? "정답입니다" : "오답입니다") : "이 답을 선택하려면 두 번 탭하세요")
         .disabled(showExplanation)
         .animation(.spring(response: 0.3), value: isSelected)
     }
@@ -174,6 +184,7 @@ struct QuizView: View {
                 .font(.system(size: 80))
                 .foregroundStyle(passed ? .green : .red)
                 .symbolEffect(.bounce, value: isFinished)
+                .accessibilityHidden(true)
             
             VStack(spacing: 8) {
                 Text(passed ? "축하합니다!" : "아쉽네요!")
@@ -181,6 +192,7 @@ struct QuizView: View {
                 Text(passed ? "퀴즈를 통과했습니다!" : "60% 이상 맞춰야 합니다")
                     .font(.body).foregroundStyle(.white.opacity(0.6))
             }
+            .accessibilityLabel(passed ? "퀴즈 통과! 축하합니다!" : "퀴즈 불합격. 60% 이상 맞춰야 합니다")
             
             HStack(spacing: 24) {
                 resultStat(value: "\(correctAnswers)", label: "정답", color: .green)
@@ -197,6 +209,8 @@ struct QuizView: View {
                 }
             }
             .frame(height: 8).padding(.horizontal, 40)
+            .accessibilityLabel("점수 진행률")
+            .accessibilityValue("\(Int(score * 100))%")
             
             Spacer()
             
@@ -211,6 +225,8 @@ struct QuizView: View {
                             .background(Color.green)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
+                    .accessibilityLabel("앱 해제하기")
+                    .accessibilityHint("퀴즈를 통과하여 앱 사용 제한을 해제하려면 두 번 탭하세요")
                 } else {
                     Button { resetQuiz() } label: {
                         Text("다시 도전하기")
@@ -219,10 +235,14 @@ struct QuizView: View {
                             .background(Color("AccentOrange"))
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
+                    .accessibilityLabel("다시 도전하기")
+                    .accessibilityHint("퀴즈를 다시 풀려면 두 번 탭하세요")
                     Button { dismiss() } label: {
                         Text("나중에 하기")
                             .font(.subheadline).foregroundStyle(.white.opacity(0.5))
                     }
+                    .accessibilityLabel("나중에 하기")
+                    .accessibilityHint("퀴즈를 닫으려면 두 번 탭하세요")
                 }
             }
             .padding(.horizontal, 32).padding(.bottom, 48)
@@ -246,6 +266,14 @@ struct QuizView: View {
             }
         } else {
             withAnimation(.spring(response: 0.4)) { isFinished = true }
+            if passed {
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                }
+            } else {
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
         }
     }
     

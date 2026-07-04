@@ -61,6 +61,7 @@ struct RootView: View {
 struct ChallengeOverlay: View {
     @EnvironmentObject var shieldManager: ShieldManager
     @State private var showReading = false
+    @AppStorage("unlockDurationMinutes") private var unlockDurationMinutes: Int = 30
 
     var body: some View {
         ZStack {
@@ -116,7 +117,7 @@ struct ChallengeOverlay: View {
                     ?? ReadingContent(id: UUID(), title: "샘플", author: "SDop", category: .koreanClassic, pages: [Page(pageNumber: 1, content: "샘플 콘텐츠입니다.")], quiz: [QuizQuestion(id: UUID(), question: "퀴즈", options: ["A", "B", "C", "D"], correctIndex: 0, explanation: "해설")], difficulty: .easy, coverImageName: nil)
             ) { _, passed in
                 if passed {
-                    shieldManager.temporaryUnlock(duration: 30 * 60)
+                    shieldManager.temporaryUnlock(duration: TimeInterval(unlockDurationMinutes * 60))
                 }
             }
         }
